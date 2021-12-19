@@ -76,7 +76,7 @@ const alternative = () => {
 
         records.forEach((record) => {
             const classes = record.fields.Classes
-            classes.forEach((Class) => {
+            classes.forEach((Class, class_index) => {
                 base('Classes').find(Class).then((class_record) => {
                     const my_record = {
                         class : class_record.fields.Name,
@@ -85,7 +85,7 @@ const alternative = () => {
                     myArr.push(my_record)
         
                     const students = class_record.fields.Students
-                    students.forEach((student) => {
+                    students.forEach((student, student_index) => {
                         base('Students').find(student).then((student_record) => {
                             myArr.map((item => {
                                 if(item.class === class_record.fields.Name){
@@ -94,6 +94,10 @@ const alternative = () => {
                                 }
                                 return item
                             }))
+
+                            if(student_index === students.length-1 && class_index === classes.length-1){
+                                console.log(myArr)
+                            }
                         }).catch((err) => {console.error(err)})
                     })
                 }).catch((err) => {console.error(err)})
@@ -101,13 +105,77 @@ const alternative = () => {
         })
     })
 
-    setTimeout(() => {
-        console.log(myArr)
-    }, 3000)
+    // setTimeout(() => {
+    //     console.log(myArr)
+    // }, 3000)
 }
 
 
+const queryBuilder = (array) => {
+    let myFilters = array.map((record) => {
+        return "RECORD_ID() = " + "\'" + record + "\'"
+    }).join(",")
+
+    return "OR(" + myFilters + ")"
+}
+const anotherMethod = () => {
+    let allCat = []
+
+    base('Students')
+    .select({
+        filterByFormula: `{Name} = "${name}"`
+    })
+    .firstPage((err, records) => {
+        if (err) console.error(err)
+
+        if(records.length == 0){
+            console.log("USER DOES NOT EXIST")
+        }
+
+        const classes = records[0].fields.Classes
+        const classQuery = queryBuilder(classes)
+
+        base('Classes').select({
+            filterByFormula: classQuery
+        })
+        .firstPage((err, classRecord) => {
+            let allCat = classRecord.map((cls) => {
+                return {
+                    class: cls,
+                    students: []
+                }}
+            )
+
+            const students = [].concat.apply([], classRecord.map((rec) => {
+                return rec.fields.Students
+            }))
+            const studentQuery = queryBuilder(students)
+
+            base('Students').select({
+                filterByFormula: studentQuery
+            })
+            .firstPage((err, studentRecord) => {
+                studentRecord.forEach((rec) => {
+                    allCat = allCat.map((cat) => {
+                        if(rec.fields.Classes.includes(cat.class.id)){
+                            cat.students.push(rec.fields.Name)
+                            return cat
+                        }
+                        return cat
+                    })
+                })
+                allCat = allCat.map((rec) => {
+                    rec.class = rec.class.fields.Name
+                    return rec
+                })
+
+                console.log(allCat)
+            })
+        })
+    })
+
+}
+
 // fetchRecord()
-
-
-alternative()
+anotherMethod()
+// alternative()
